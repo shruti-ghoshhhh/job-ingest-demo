@@ -1,0 +1,19 @@
+{
+  "name": "job-ingest-demo",
+  "version": "1.0.0",
+  "description": "Resilient job listing ingestion demo — Acdyon Frontend Challenge Part 1",
+  "main": "server.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node server.js",
+    "ingest:once": "node src/runOnce.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "node-cron": "^3.0.3",
+    "node-fetch": "^2.7.0"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
