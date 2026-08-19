@@ -68,7 +68,10 @@ function recordFailure(sourceKey) {
     const entry = state[sourceKey] || { consecutiveFailures: 0, openedAt: null };
     entry.consecutiveFailures += 1;
 
-    if (entry.consecutiveFailures >= BREAKER_FAILURE_THRESHOLD && !entry.openedAt) {
+    if (entry.consecutiveFailures >= BREAKER_FAILURE_THRESHOLD) {
+        // Always re-arm the timer: if the breaker was half-open and the probe
+        // fails, this resets openedAt to now so the full cooldown runs again
+        // from this failure — not from the original trip time.
         entry.openedAt = Date.now();
     }
 
