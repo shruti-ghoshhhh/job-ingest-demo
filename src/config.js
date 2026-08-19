@@ -1,19 +1,41 @@
 module.exports = {
-  // The single low-risk, public source this demo pulls from.
-  // RemoteOK's /api endpoint is a public, unauthenticated JSON feed of
-  // remote job listings, intended to be machine-read. No login, no ToS
-  // violation, no account to burn — chosen specifically per the challenge's
-  // scope guardrail.
+  // Primary source: RemoteOK's /api endpoint, a public, unauthenticated
+  // JSON feed of remote job listings, intended to be machine-read. No
+  // login, no ToS violation, no account to burn — chosen specifically per
+  // the challenge's scope guardrail.
   SOURCE_URL: 'https://remoteok.com/api',
+  SOURCE_TYPE: 'json', // 'json' | 'rss'
+  SOURCE_KEY: 'remoteok',
+
+  // Secondary / fallback source: WeWorkRemotely's public RSS feed. Also
+  // unauthenticated, also intended for machine consumption (RSS exists to
+  // be polled), and structurally independent of RemoteOK — if RemoteOK
+  // changes its markup or blocks us, WWR is very unlikely to fail for the
+  // same reason at the same time. This is the "plan B" referenced in the
+  // design doc, actually wired into the pipeline rather than left as prose.
+  SECONDARY_SOURCE_URL: 'https://weworkremotely.com/remote-jobs.rss',
+  SECONDARY_SOURCE_TYPE: 'rss',
+  SECONDARY_SOURCE_KEY: 'weworkremotely',
 
   // Pacing: even against a friendly source, the demo behaves as if it were
   // adversarial, since the point is to prove the ingestion *pattern* works.
-  MIN_DELAY_MS: 800,
-  MAX_JITTER_MS: 1200,
+  // Overridable via env vars so the test suite can run with near-zero
+  // delay instead of really sleeping for seconds per retry — production
+  // and `npm start` use the real defaults below.
+  MIN_DELAY_MS: Number(process.env.MIN_DELAY_MS) || 800,
+  MAX_JITTER_MS: Number(process.env.MAX_JITTER_MS) || 1200,
 
   // Retry/backoff
   MAX_RETRIES: 4,
-  BASE_BACKOFF_MS: 1000,
+  BASE_BACKOFF_MS: Number(process.env.BASE_BACKOFF_MS) || 1000,
+
+  // Circuit breaker: after this many *consecutive* failed cycles on a
+  // given source, stop attempting it for BREAKER_COOLDOWN_MS instead of
+  // retrying every single scheduled run. This is what actually changes
+  // behavior when "the primary approach gets shut down" — without it, a
+  // blocked source just gets hammered again every 10 minutes forever.
+  BREAKER_FAILURE_THRESHOLD: 3,
+  BREAKER_COOLDOWN_MS: 10 * 60 * 1000, // 10 minutes
 
   // Rotating identities (User-Agent pool). In production this would pair
   // with rotating egress IPs / proxy pool + separate cookie jars per
@@ -29,5 +51,6 @@ module.exports = {
   CRON_SCHEDULE: '*/10 * * * *', // every 10 minutes
 
   DATA_FILE: require('path').join(__dirname, '..', 'data', 'listings.json'),
-  LOG_FILE: require('path').join(__dirname, '..', 'data', 'run_log.json')
+  LOG_FILE: require('path').join(__dirname, '..', 'data', 'run_log.json'),
+  BREAKER_STATE_FILE: require('path').join(__dirname, '..', 'data', 'breaker_state.json')
 };
