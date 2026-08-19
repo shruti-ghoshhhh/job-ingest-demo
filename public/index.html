@@ -1,181 +1,265 @@
 <!doctype html>
 <html lang="en">
+
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Job Ingest Demo — Acdyon Challenge Part 1</title>
-<style>
-  :root {
-    --bg: #0b0e14;
-    --panel: #12161f;
-    --border: #232838;
-    --text: #e7e9ee;
-    --muted: #8b93a7;
-    --accent: #6ee7b7;
-    --warn: #f5c451;
-    --err: #f56565;
-  }
-  * { box-sizing: border-box; }
-  body {
-    margin: 0;
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-    background: var(--bg);
-    color: var(--text);
-  }
-  header {
-    padding: 24px 20px 16px;
-    border-bottom: 1px solid var(--border);
-  }
-  header h1 { margin: 0 0 4px; font-size: 20px; }
-  header p { margin: 0; color: var(--muted); font-size: 14px; }
-  main {
-    max-width: 900px;
-    margin: 0 auto;
-    padding: 20px;
-    display: grid;
-    gap: 20px;
-  }
-  .panel {
-    background: var(--panel);
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    padding: 16px;
-  }
-  .panel h2 {
-    margin: 0 0 12px;
-    font-size: 15px;
-    color: var(--muted);
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-  }
-  .row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-  button {
-    background: var(--accent);
-    color: #06251a;
-    border: none;
-    border-radius: 8px;
-    padding: 8px 14px;
-    font-weight: 600;
-    cursor: pointer;
-    font-size: 13px;
-  }
-  button:disabled { opacity: 0.5; cursor: default; }
-  .listing {
-    border-bottom: 1px solid var(--border);
-    padding: 10px 0;
-  }
-  .listing:last-child { border-bottom: none; }
-  .listing a { color: var(--text); text-decoration: none; font-weight: 600; }
-  .listing a:hover { color: var(--accent); }
-  .meta { color: var(--muted); font-size: 12px; margin-top: 2px; }
-  .tags span {
-    display: inline-block;
-    font-size: 11px;
-    background: #1c2330;
-    color: var(--muted);
-    padding: 2px 8px;
-    border-radius: 999px;
-    margin: 4px 4px 0 0;
-  }
-  .run { padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 13px; }
-  .run:last-child { border-bottom: none; }
-  .status-success { color: var(--accent); }
-  .status-blocked, .status-network_failure, .status-parse_failure, .status-schema_drift_suspected { color: var(--err); }
-  .status-empty_response, .status-success_with_quarantine { color: var(--warn); }
-  .empty { color: var(--muted); font-size: 13px; }
-</style>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Job Ingest Demo — Acdyon Challenge Part 1</title>
+  <style>
+    :root {
+      --bg: #0b0e14;
+      --panel: #12161f;
+      --border: #232838;
+      --text: #e7e9ee;
+      --muted: #8b93a7;
+      --accent: #6ee7b7;
+      --warn: #f5c451;
+      --err: #f56565;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+    }
+
+    header {
+      padding: 24px 20px 16px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    header h1 {
+      margin: 0 0 4px;
+      font-size: 20px;
+    }
+
+    header p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    main {
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 20px;
+      display: grid;
+      gap: 20px;
+    }
+
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 16px;
+    }
+
+    .panel h2 {
+      margin: 0 0 12px;
+      font-size: 15px;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    .row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    button {
+      background: var(--accent);
+      color: #06251a;
+      border: none;
+      border-radius: 8px;
+      padding: 8px 14px;
+      font-weight: 600;
+      cursor: pointer;
+      font-size: 13px;
+    }
+
+    button:disabled {
+      opacity: 0.5;
+      cursor: default;
+    }
+
+    .listing {
+      border-bottom: 1px solid var(--border);
+      padding: 10px 0;
+    }
+
+    .listing:last-child {
+      border-bottom: none;
+    }
+
+    .listing a {
+      color: var(--text);
+      text-decoration: none;
+      font-weight: 600;
+    }
+
+    .listing a:hover {
+      color: var(--accent);
+    }
+
+    .meta {
+      color: var(--muted);
+      font-size: 12px;
+      margin-top: 2px;
+    }
+
+    .tags span {
+      display: inline-block;
+      font-size: 11px;
+      background: #1c2330;
+      color: var(--muted);
+      padding: 2px 8px;
+      border-radius: 999px;
+      margin: 4px 4px 0 0;
+    }
+
+    .run {
+      padding: 8px 0;
+      border-bottom: 1px solid var(--border);
+      font-size: 13px;
+    }
+
+    .run:last-child {
+      border-bottom: none;
+    }
+
+    .status-success {
+      color: var(--accent);
+    }
+
+    .status-blocked,
+    .status-network_failure,
+    .status-parse_failure,
+    .status-schema_drift_suspected {
+      color: var(--err);
+    }
+
+    .status-empty_response,
+    .status-success_with_quarantine {
+      color: var(--warn);
+    }
+
+    .empty {
+      color: var(--muted);
+      font-size: 13px;
+    }
+  </style>
 </head>
+
 <body>
-<header>
-  <h1>Job Ingest Demo</h1>
-  <p>Acdyon Technologies Frontend Challenge — Part 1: resilient ingestion against a public, low-risk job listings source.</p>
-</header>
-<main>
-  <section class="panel">
-    <div class="row">
-      <h2 style="margin:0;">Listings</h2>
-      <button id="runBtn">Run ingestion now</button>
-    </div>
-    <div id="statusLine" class="meta" style="margin: 8px 0 0;"></div>
-    <div id="listings" style="margin-top: 12px;"></div>
-  </section>
+  <header>
+    <h1>Job Ingest Demo</h1>
+    <p>Acdyon Technologies Frontend Challenge — Part 1: resilient ingestion against a public, low-risk job listings
+      source.</p>
+  </header>
+  <main>
+    <section class="panel">
+      <div class="row">
+        <h2 style="margin:0;">Listings</h2>
+        <button id="runBtn">Run ingestion now</button>
+      </div>
+      <div id="statusLine" class="meta" style="margin: 8px 0 0;"></div>
+      <div id="listings" style="margin-top: 12px;"></div>
+    </section>
 
-  <section class="panel">
-    <h2>Ingestion run log</h2>
-    <div id="runs"></div>
-  </section>
-</main>
+    <section class="panel">
+      <h2>Ingestion run log</h2>
+      <div id="runs"></div>
+    </section>
+  </main>
 
-<script>
-async function loadListings() {
-  const res = await fetch('/api/listings');
-  const data = await res.json();
-  const container = document.getElementById('listings');
-  const statusLine = document.getElementById('statusLine');
+  <script>
+    async function loadListings() {
+      const res = await fetch('/api/listings');
+      const data = await res.json();
+      const container = document.getElementById('listings');
+      const statusLine = document.getElementById('statusLine');
 
-  statusLine.textContent = data.lastSuccessAt
-    ? `Last successful pull: ${new Date(data.lastSuccessAt).toLocaleString()} — ${data.count} listings from ${data.source || 'unknown source'}`
-    : 'No successful pull yet.';
+      statusLine.textContent = data.lastSuccessAt
+        ? `Last successful pull: ${new Date(data.lastSuccessAt).toLocaleString()} — ${data.count} listings from ${data.source || 'unknown source'}`
+        : 'No successful pull yet.';
 
-  if (!data.listings || data.listings.length === 0) {
-    container.innerHTML = '<p class="empty">No listings yet. Trigger a run above.</p>';
-    return;
-  }
+      if (!data.listings || data.listings.length === 0) {
+        container.innerHTML = '<p class="empty">No listings yet. Trigger a run above.</p>';
+        return;
+      }
 
-  container.innerHTML = data.listings.slice(0, 30).map(l => `
+      container.innerHTML = data.listings.slice(0, 30).map(l => `
     <div class="listing">
       <a href="${l.url}" target="_blank" rel="noopener">${escapeHtml(l.title)}</a>
       <div class="meta">${escapeHtml(l.company)} · ${escapeHtml(l.location)}</div>
       <div class="tags">${(l.tags || []).map(t => `<span>${escapeHtml(t)}</span>`).join('')}</div>
     </div>
   `).join('');
-}
+    }
 
-async function loadRuns() {
-  const res = await fetch('/api/runs');
-  const runs = await res.json();
-  const container = document.getElementById('runs');
+    async function loadRuns() {
+      const res = await fetch('/api/runs');
+      const runs = await res.json();
+      const container = document.getElementById('runs');
 
-  if (!runs || runs.length === 0) {
-    container.innerHTML = '<p class="empty">No runs logged yet.</p>';
-    return;
-  }
+      if (!runs || runs.length === 0) {
+        container.innerHTML = '<p class="empty">No runs logged yet.</p>';
+        return;
+      }
 
-  container.innerHTML = runs.map(r => `
+      container.innerHTML = runs.map(r => {
+        const sourceLines = r.sources ? Object.entries(r.sources).map(([key, s]) => {
+          if (s.skipped) return `<div class="meta">↳ ${key}: circuit open, skipped (retry in ${Math.ceil((s.remainingMs || 0) / 1000)}s)</div>`;
+          if (s.ok) return `<div class="meta">↳ ${key}: ok</div>`;
+          return `<div class="meta">↳ ${key}: ${s.status}${s.httpStatus ? ` (HTTP ${s.httpStatus})` : ''}</div>`;
+        }).join('') : '';
+
+        return `
     <div class="run">
       <span class="status-${r.status}">●</span>
       <strong>${r.status}</strong>
       — ${new Date(r.at).toLocaleString()}
+      ${r.activeSource ? ` · via <strong>${r.activeSource}</strong>` : ''}
       ${r.storedCount != null ? ` · stored ${r.storedCount}` : ''}
       ${r.quarantinedCount ? ` · quarantined ${r.quarantinedCount}` : ''}
-      ${r.httpStatus ? ` · HTTP ${r.httpStatus}` : ''}
       ${r.fallback ? ` · fallback: ${r.fallback}` : ''}
+      ${sourceLines}
     </div>
-  `).join('');
-}
+  `;
+      }).join('');
+    }
 
-function escapeHtml(str) {
-  return String(str).replace(/[&<>"']/g, (c) => ({
-    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
-  })[c]);
-}
+    function escapeHtml(str) {
+      return String(str).replace(/[&<>"']/g, (c) => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+      })[c]);
+    }
 
-document.getElementById('runBtn').addEventListener('click', async (e) => {
-  e.target.disabled = true;
-  e.target.textContent = 'Running...';
-  try {
-    await fetch('/api/ingest/run', { method: 'POST' });
-  } finally {
-    e.target.disabled = false;
-    e.target.textContent = 'Run ingestion now';
+    document.getElementById('runBtn').addEventListener('click', async (e) => {
+      e.target.disabled = true;
+      e.target.textContent = 'Running...';
+      try {
+        await fetch('/api/ingest/run', { method: 'POST' });
+      } finally {
+        e.target.disabled = false;
+        e.target.textContent = 'Run ingestion now';
+        loadListings();
+        loadRuns();
+      }
+    });
+
     loadListings();
     loadRuns();
-  }
-});
-
-loadListings();
-loadRuns();
-setInterval(() => { loadListings(); loadRuns(); }, 15000);
-</script>
+    setInterval(() => { loadListings(); loadRuns(); }, 15000);
+  </script>
 </body>
+
 </html>
