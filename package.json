@@ -6,14 +6,19 @@
   "type": "commonjs",
   "scripts": {
     "start": "node server.js",
-    "ingest:once": "node src/runOnce.js"
+    "ingest:once": "node src/runOnce.js",
+    "test": "cross-env MIN_DELAY_MS=5 MAX_JITTER_MS=5 BASE_BACKOFF_MS=10 node --test"
   },
   "dependencies": {
     "express": "^4.19.2",
+    "fast-xml-parser": "^5.11.0",
     "node-cron": "^3.0.3",
     "node-fetch": "^2.7.0"
   },
   "engines": {
     "node": ">=18"
+  },
+  "devDependencies": {
+    "cross-env": "^10.1.0"
   }
 }
