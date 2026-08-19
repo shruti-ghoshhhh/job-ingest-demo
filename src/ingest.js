@@ -1,90 +1,149 @@
-const { SOURCE_URL } = require('./config');
+const {
+  SOURCE_URL, SOURCE_TYPE, SOURCE_KEY,
+  SECONDARY_SOURCE_URL, SECONDARY_SOURCE_TYPE, SECONDARY_SOURCE_KEY
+} = require('./config');
 const { fetchWithRetry } = require('./fetchWithRetry');
+const { parseSource } = require('./sources');
 const { validateBatch } = require('./validate');
-const { readListings, writeListings, appendRunLog } = require('./storage');
+const { writeListings, appendRunLog } = require('./storage');
+const breaker = require('./circuitBreaker');
 
 /**
- * Runs one ingestion cycle end-to-end and returns a run summary.
- * This function is the resilience story: no matter which stage fails
- * (network, block signal, empty body, bad markup/schema), it degrades to
- * "keep serving the last known-good snapshot" instead of crashing the
- * process or wiping good data with a bad partial result.
+ * Attempts one full pull-and-validate cycle against a single source
+ * (fetch with retry -> parse -> schema-validate). Never throws; returns a
+ * structured result so the caller can decide what to do next (try the
+ * next source, fall back to cache, etc.) instead of a try/catch pyramid.
  */
-async function runIngestCycle() {
+async function attemptSource({ url, type, key }, { fetchImpl } = {}) {
   const attemptLog = [];
-  const result = await fetchWithRetry(SOURCE_URL, {
-    onAttemptLog: (entry) => attemptLog.push(entry)
+  const fetchResult = await fetchWithRetry(url, {
+    onAttemptLog: (entry) => attemptLog.push(entry),
+    ...(fetchImpl ? { fetchImpl } : {})
   });
 
-  // Stage 1: the request itself failed / we got blocked after retries.
-  if (!result.ok) {
-    const summary = {
-      status: result.blocked ? 'blocked' : 'network_failure',
-      httpStatus: result.status,
-      error: result.error,
-      attempts: attemptLog,
-      fallback: 'served_last_known_good'
+  if (!fetchResult.ok) {
+    return {
+      ok: false,
+      sourceKey: key,
+      status: fetchResult.blocked ? 'blocked' : 'network_failure',
+      httpStatus: fetchResult.status,
+      error: fetchResult.error,
+      attempts: attemptLog
     };
-    appendRunLog(summary);
-    return summary;
   }
 
-  // Stage 2: we got a 200 but the body is empty or unparseable.
   let parsed;
   try {
-    parsed = JSON.parse(result.body);
+    parsed = parseSource(type, fetchResult.body);
   } catch (err) {
-    const summary = {
+    return {
+      ok: false,
+      sourceKey: key,
       status: 'parse_failure',
-      error: `JSON parse failed: ${err.message}`,
-      attempts: attemptLog,
-      fallback: 'served_last_known_good'
+      error: err.message,
+      attempts: attemptLog
     };
-    appendRunLog(summary);
-    return summary;
   }
 
   if (!Array.isArray(parsed) || parsed.length === 0) {
-    const summary = {
-      status: 'empty_response',
-      attempts: attemptLog,
-      fallback: 'served_last_known_good'
-    };
-    appendRunLog(summary);
-    return summary;
+    return { ok: false, sourceKey: key, status: 'empty_response', attempts: attemptLog };
   }
 
-  // Stage 3: schema validation per-record. RemoteOK's first array element
-  // is a metadata/legal blob, not a listing — this alone will quarantine
-  // as expected, demonstrating the pipeline doesn't choke on it.
   const { valid, quarantined } = validateBatch(parsed);
 
   if (valid.length === 0) {
-    // Every record failed validation — likely the source changed its
-    // markup/schema overnight. Don't overwrite good data with nothing.
-    const summary = {
+    // Every record failed validation — the source likely changed its
+    // markup/schema overnight. Surfaced distinctly from a plain empty
+    // response because the remediation is different (fix the parser vs.
+    // just wait for the source to come back).
+    return {
+      ok: false,
+      sourceKey: key,
       status: 'schema_drift_suspected',
       quarantinedCount: quarantined.length,
       sampleQuarantined: quarantined.slice(0, 3),
-      attempts: attemptLog,
-      fallback: 'served_last_known_good'
+      attempts: attemptLog
     };
-    appendRunLog(summary);
-    return summary;
   }
 
-  // Success path: partial success is still success — persist what
-  // validated, log what didn't.
-  const stored = writeListings(valid, SOURCE_URL);
+  return {
+    ok: true,
+    sourceKey: key,
+    sourceUrl: url,
+    valid,
+    quarantined,
+    attempts: attemptLog
+  };
+}
+
+/**
+ * Runs one ingestion cycle end-to-end:
+ *   1. If the primary source's breaker is open (tripped after repeated
+ *      consecutive failures), skip it entirely and go straight to the
+ *      secondary — no point retrying a source known to be down.
+ *   2. Otherwise attempt the primary. Success -> store, record breaker
+ *      success, done.
+ *   3. Primary failure -> record breaker failure, attempt the secondary
+ *      (same breaker logic applied to it independently).
+ *   4. Secondary also fails (or its breaker is open) -> fall back to
+ *      serving the last known-good snapshot rather than crashing or
+ *      wiping good data.
+ *
+ * This is the concrete implementation of the "plan B when the primary
+ * approach gets shut down" question from the design doc — not just a
+ * paragraph, but the actual control flow a scheduled run takes.
+ */
+async function runIngestCycle({ fetchImplBySourceKey = {} } = {}) {
+  const primary = { url: SOURCE_URL, type: SOURCE_TYPE, key: SOURCE_KEY };
+  const secondary = { url: SECONDARY_SOURCE_URL, type: SECONDARY_SOURCE_TYPE, key: SECONDARY_SOURCE_KEY };
+
+  const attemptsBySource = {};
+
+  for (const source of [primary, secondary]) {
+    const breakerStatus = breaker.getStatus(source.key);
+
+    if (breakerStatus.open) {
+      attemptsBySource[source.key] = {
+        skipped: true,
+        reason: 'circuit_open',
+        remainingMs: breakerStatus.remainingMs,
+        consecutiveFailures: breakerStatus.consecutiveFailures
+      };
+      continue; // don't attempt a source we know is down; try the next one
+    }
+
+    const result = await attemptSource(source, { fetchImpl: fetchImplBySourceKey[source.key] });
+    attemptsBySource[source.key] = result;
+
+    if (result.ok) {
+      breaker.recordSuccess(source.key);
+      const stored = writeListings(result.valid, result.sourceUrl);
+      const summary = {
+        status: result.quarantined.length > 0 ? 'success_with_quarantine' : 'success',
+        activeSource: source.key,
+        storedCount: result.valid.length,
+        quarantinedCount: result.quarantined.length,
+        sources: attemptsBySource,
+        lastSuccessAt: stored.lastSuccessAt
+      };
+      appendRunLog(summary);
+      return summary;
+    }
+
+    // This source failed — record it against its breaker and fall
+    // through to try the next source in the loop (if any remain).
+    breaker.recordFailure(source.key);
+  }
+
+  // Every source failed (or was skipped due to an open breaker). Serve
+  // the last known-good snapshot instead of an empty/broken result.
   const summary = {
-    status: quarantined.length > 0 ? 'success_with_quarantine' : 'success',
-    storedCount: valid.length,
-    quarantinedCount: quarantined.length,
-    attempts: attemptLog,
-    lastSuccessAt: stored.lastSuccessAt
+    status: 'all_sources_failed',
+    sources: attemptsBySource,
+    fallback: 'served_last_known_good'
   };
   appendRunLog(summary);
   return summary;
 }
 
-module.exports = { runIngestCycle };
+module.exports = { runIngestCycle, attemptSource };
