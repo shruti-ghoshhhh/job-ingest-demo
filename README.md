@@ -2,7 +2,8 @@
 
 Resilient job listing ingestion, built for the Acdyon Frontend Challenge Part 1.
 
-**Live demo:** *(deploy URL — add after Render deployment)*
+**Live demo:** https://job-ingest-demo-cqnf.onrender.com
+
 **Repo:** https://github.com/shruti-ghoshhhh/job-ingest-demo
 
 ---
