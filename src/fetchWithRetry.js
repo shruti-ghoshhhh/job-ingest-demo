@@ -1,4 +1,4 @@
-const fetch = require('node-fetch');
+const defaultFetch = require('node-fetch');
 const { MAX_RETRIES, BASE_BACKOFF_MS } = require('./config');
 const { nextIdentity, jitterDelay } = require('./identity');
 
@@ -17,8 +17,13 @@ function sleep(ms) {
  * Returns { ok, status, body, attempts, blocked } — never throws for
  * expected failure modes, so callers can decide what "resilience" means
  * (fallback to cache, skip cycle, alert) instead of crashing.
+ *
+ * `fetchImpl` is injectable (defaults to node-fetch) specifically so unit
+ * tests can simulate 403s, timeouts, and malformed responses
+ * deterministically without depending on a real network call. See
+ * test/fetchWithRetry.test.js.
  */
-async function fetchWithRetry(url, { onAttemptLog } = {}) {
+async function fetchWithRetry(url, { onAttemptLog, fetchImpl = defaultFetch } = {}) {
   let lastError = null;
   let lastStatus = null;
 
@@ -27,7 +32,7 @@ async function fetchWithRetry(url, { onAttemptLog } = {}) {
     const identity = nextIdentity();
 
     try {
-      const res = await fetch(url, { headers: identity.headers, timeout: 10000 });
+      const res = await fetchImpl(url, { headers: identity.headers, timeout: 10000 });
       lastStatus = res.status;
 
       if (res.status === 429 || res.status === 403) {
