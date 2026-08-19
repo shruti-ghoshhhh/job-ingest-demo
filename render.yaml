@@ -3,8 +3,13 @@ services:
     name: job-ingest-demo
     env: node
     plan: free
+    region: oregon
     buildCommand: npm install
     startCommand: npm start
+    healthCheckPath: /api/health
+    autoDeploy: true
     envVars:
       - key: NODE_VERSION
         value: 22.x
+      - key: NODE_ENV
+        value: production
