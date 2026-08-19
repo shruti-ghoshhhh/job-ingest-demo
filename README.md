@@ -98,8 +98,9 @@ npm test
 test script). Covers: retry/backoff timing, 403/429 vs. generic-error handling, schema
 validation and quarantine (including simulated overnight schema drift), circuit breaker
 trip/half-open/reset/per-source independence, and full integration tests of the failover
-chain (primary fails → secondary; both fail → cached fallback; breaker-open → source
-skipped without being called).
+chain (primary fails to secondary; both fail to cached fallback; breaker-open means source
+skipped without being called). See `TESTING.md` for a full walkthrough of what each test
+checks and how to verify the same behaviour against the live server.
 
 ## Endpoints
 
@@ -126,8 +127,9 @@ src/ingest.js           Orchestrates one cycle: breaker check → primary → se
 src/runOnce.js          CLI entrypoint for a single manual run
 public/index.html       Dashboard UI
 test/                   Automated tests
-DESIGN.md               Full design rationale (detection surface, ingestion strategy, resilience, scope)
+DESIGN.md               Full design rationale: detection surface, ingestion strategy, resilience, scope
 DECISIONS.md            Trade-offs, what I scoped out and why, where I used AI tools
+TESTING.md              Test suite walkthrough and live verification guide
 ```
 
 ## Deploy (Render)
