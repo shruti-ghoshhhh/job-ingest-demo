@@ -45,11 +45,16 @@ app.get('/api/health', (req, res) => {
 app.listen(PORT, () => {
   console.log(`Job ingest demo listening on :${PORT}`);
 
-  // Kick off one run at boot so the demo has data immediately, then follow
-  // the schedule.
-  runIngestCycle().catch((err) => console.error('Boot ingest failed:', err));
-
+  // Schedule recurring ingestion runs.
   cron.schedule(CRON_SCHEDULE, () => {
     runIngestCycle().catch((err) => console.error('Scheduled ingest failed:', err));
   });
+});
+
+// Fire the boot-time ingest AFTER the event loop returns so the server is
+// already accepting requests (including /api/health) before we make any
+// outbound network calls. This prevents Render's health check from timing
+// out while remoteok.com is slow or retrying — which causes the 502.
+setImmediate(() => {
+  runIngestCycle().catch((err) => console.error('Boot ingest failed:', err));
 });
